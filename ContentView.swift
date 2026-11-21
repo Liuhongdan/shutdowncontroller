@@ -180,6 +180,7 @@ struct ContentView: View {
     @State private var newMinute: Int = 0
     @AppStorage("LaunchAtLogin") private var launchAtLogin = true
     @State private var launchAtLoginError: String?
+    @State private var showingAbout = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -243,6 +244,9 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
+                Button("About") {
+                    showingAbout = true
+                }
                 Button("Quit") {
                     NSApplication.shared.terminate(nil)
                 }
@@ -265,6 +269,9 @@ struct ContentView: View {
         .onAppear {
             updateLaunchAtLogin(launchAtLogin)
         }
+        .sheet(isPresented: $showingAbout) {
+            AboutView()
+        }
     }
 
     private func updateLaunchAtLogin(_ enabled: Bool) {
@@ -282,5 +289,84 @@ struct ContentView: View {
         } catch {
             launchAtLoginError = "Could not update login setting: \(error.localizedDescription)"
         }
+    }
+}
+
+struct AboutView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    if let icon = NSImage(named: "AppIcon") {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: 64, height: 64)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Shutdown Controller")
+                            .font(.title2.weight(.semibold))
+                        Text("Version \(appVersion) (Build \(buildNumber))")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Text("Schedule automatic shutdowns on macOS.")
+                            .font(.callout)
+                    }
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Contributor")
+                        .font(.headline)
+                    Text("Liuhongdan")
+
+                    Link("Project Repository", destination: URL(string: "https://github.com/Liuhongdan/shutdowncontroller")!)
+                    Link("Report an Issue", destination: URL(string: "https://github.com/Liuhongdan/shutdowncontroller/issues")!)
+                    Link("Releases", destination: URL(string: "https://github.com/Liuhongdan/shutdowncontroller/releases")!)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("License")
+                        .font(.headline)
+                    Text("MIT License")
+                    Text("Copyright © 2026 Liuhongdan")
+                        .foregroundColor(.secondary)
+                    Link("View License", destination: URL(string: "https://github.com/Liuhongdan/shutdowncontroller/blob/main/LICENSE")!)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Third-Party Notices")
+                        .font(.headline)
+                    Text("No third-party software libraries are bundled. This app uses Apple SwiftUI, AppKit, and ServiceManagement frameworks.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                HStack {
+                    Spacer()
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .keyboardShortcut(.cancelAction)
+                }
+            }
+            .padding(20)
+        }
+        .frame(width: 420, height: 390)
     }
 }

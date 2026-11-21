@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 APP_NAME="ShutdownController"
-VERSION="1.0"
+VERSION="1.0.0"
 BUILD_DIR="$SCRIPT_DIR/build"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 DMG_ROOT="$BUILD_DIR/$APP_NAME-dmg"

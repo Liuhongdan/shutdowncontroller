@@ -43,7 +43,7 @@ To build a DMG:
 The DMG will be created at:
 
 ```text
-build/ShutdownController-1.0.dmg
+build/ShutdownController-1.0.0.dmg
 ```
 
 ## Usage
@@ -70,3 +70,9 @@ See [INSTALL-UNINSTALL.txt](INSTALL-UNINSTALL.txt) for installation, removal, an
 - `ContentView.swift` — schedule UI and shutdown logic
 - `package-app.sh` — builds a universal macOS app bundle
 - `build-dmg.sh` — builds the DMG installer
+
+## License
+
+This project is licensed under the MIT License. Copyright © 2026 Liuhongdan.
+
+See [LICENSE](LICENSE) for the full license text.
