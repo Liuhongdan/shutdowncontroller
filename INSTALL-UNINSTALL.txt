@@ -1,0 +1,38 @@
+SHUTDOWN CONTROLLER
+Install and uninstall guide
+
+INSTALL
+1. Open ShutdownController-1.0.dmg.
+2. In the window that opens, drag ShutdownController.app onto the Applications
+   shortcut. Wait for the copy to finish.
+3. Eject the ShutdownController disk image.
+4. Open ShutdownController from the Applications folder. On first launch, the
+   app is set to start at login by default. Change this in the app's
+   "Start at login" switch.
+
+UNINSTALL THE APP
+1. Open ShutdownController from Applications.
+2. Turn off "Start at login" in its popover, then choose Quit.
+3. In Finder, open Applications and move ShutdownController.app to the Trash.
+
+If the app cannot be opened, remove it from System Settings > General > Login
+Items & Extensions before moving it to the Trash. Remove ShutdownController
+from both "Open at Login" and "Allow in the Background" if it appears there.
+
+REMOVE SAVED SETTINGS (OPTIONAL)
+The saved schedules and login preference are stored separately from the app.
+Removing them resets the app completely; leave them in place if you may
+reinstall and want to keep your schedules.
+
+1. Make sure Shutdown Controller is quit.
+2. In Finder, choose Go > Go to Folder.
+3. Enter: ~/Library/Preferences/
+4. Move com.local.ShutdownController.plist to the Trash, if it exists.
+
+Empty the Trash only when you are sure you no longer need the app or its data.
+
+DISTRIBUTION NOTE
+An unsigned build may be blocked by macOS when downloaded from the internet.
+For public distribution, sign the app with an Apple Developer ID Application
+certificate and notarize the DMG. The build script supports both; see
+build-dmg.sh for the DEVELOPER_ID_APPLICATION and NOTARY_PROFILE settings.
