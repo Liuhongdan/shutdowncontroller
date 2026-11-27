@@ -32,9 +32,9 @@ cat << 'EOF' > "$APP_BUNDLE/Contents/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.1.0</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>
@@ -54,8 +54,8 @@ else
 fi
 
 echo "Compiling Swift application..."
-swiftc ShutdownApp.swift ContentView.swift -o "$BUILD_DIR/$APP_NAME-arm64" -target arm64-apple-macos13.0
-swiftc ShutdownApp.swift ContentView.swift -o "$BUILD_DIR/$APP_NAME-x86_64" -target x86_64-apple-macos13.0
+swiftc ShutdownApp.swift ContentView.swift ScheduleRules.swift -o "$BUILD_DIR/$APP_NAME-arm64" -target arm64-apple-macos13.0
+swiftc ShutdownApp.swift ContentView.swift ScheduleRules.swift -o "$BUILD_DIR/$APP_NAME-x86_64" -target x86_64-apple-macos13.0
 lipo -create \
     "$BUILD_DIR/$APP_NAME-arm64" \
     "$BUILD_DIR/$APP_NAME-x86_64" \

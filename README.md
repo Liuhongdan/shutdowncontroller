@@ -7,6 +7,8 @@ A lightweight macOS menu bar application for scheduling automatic system shutdow
 - Menu bar interface
 - Up to five configurable shutdown times
 - Automatically sorted time slots
+- Prevents duplicate shutdown times
+- Locks enabled schedules within two hours of shutdown
 - Enable or disable individual schedules
 - Two-minute shutdown warning popup
 - Optional launch-at-login
@@ -43,7 +45,7 @@ To build a DMG:
 The DMG will be created at:
 
 ```text
-build/ShutdownController-1.0.0.dmg
+build/ShutdownController-1.1.0.dmg
 ```
 
 ## Usage
@@ -51,10 +53,21 @@ build/ShutdownController-1.0.0.dmg
 1. Open `ShutdownController.app`.
 2. Click the power icon in the macOS menu bar.
 3. Add a shutdown time using the hour and minute pickers.
-4. Enable the schedule with the toggle.
-5. The app will automatically sort enabled and disabled schedules chronologically.
-6. Two minutes before a scheduled shutdown, an acknowledgment popup is displayed.
-7. The system shuts down at the scheduled time.
+4. Duplicate times cannot be added.
+5. Enable the schedule with the toggle.
+6. Enabled schedules are locked two hours before shutdown and cannot be changed or deleted.
+7. The app will automatically sort enabled and disabled schedules chronologically.
+8. Two minutes before a scheduled shutdown, an acknowledgment popup is displayed.
+9. The system shuts down at the scheduled time.
+
+## Running Schedule Rule Tests
+
+Run the focused scheduling tests with:
+
+```bash
+swiftc ScheduleRules.swift Tests/ScheduleRulesTests.swift -o /tmp/shutdown-controller-tests
+/tmp/shutdown-controller-tests
+```
 
 ## Launch at Login
 
@@ -68,6 +81,7 @@ See [INSTALL-UNINSTALL.txt](INSTALL-UNINSTALL.txt) for installation, removal, an
 
 - `ShutdownApp.swift` — app and menu bar setup
 - `ContentView.swift` — schedule UI and shutdown logic
+- `ScheduleRules.swift` — duplicate-time and schedule-lock rules
 - `package-app.sh` — builds a universal macOS app bundle
 - `build-dmg.sh` — builds the DMG installer
 

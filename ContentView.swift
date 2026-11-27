@@ -2,14 +2,8 @@ import SwiftUI
 import ServiceManagement
 import AppKit
 
-struct ShutdownSlot: Identifiable, Codable {
-    var id = UUID()
-    var hour: Int
-    var minute: Int
-    var isEnabled: Bool
-}
-
 class ShutdownManager: NSObject, ObservableObject {
+    @Published private(set) var currentTime = Date()
     @Published var slots: [ShutdownSlot] = [
         ShutdownSlot(hour: 22, minute: 35, isEnabled: false),
         ShutdownSlot(hour: 22, minute: 40, isEnabled: false),
@@ -32,14 +26,34 @@ class ShutdownManager: NSObject, ObservableObject {
         timer?.invalidate()
     }
 
-    func addSlot(_ slot: ShutdownSlot) {
+    func canAddSlot(hour: Int, minute: Int) -> Bool {
+        slots.count < 5 && !ScheduleRules.hasDuplicate(hour: hour, minute: minute, in: slots)
+    }
+
+    @discardableResult
+    func addSlot(_ slot: ShutdownSlot) -> Bool {
+        guard canAddSlot(hour: slot.hour, minute: slot.minute) else { return false }
         slots.append(slot)
         sortSlots()
+        return true
     }
 
     func removeSlot(id: UUID) {
+        guard let slot = slots.first(where: { $0.id == id }), !isSlotLocked(slot) else { return }
         slots.removeAll { $0.id == id }
         sortSlots()
+    }
+
+    func setEnabled(_ isEnabled: Bool, for id: UUID) {
+        guard let index = slots.firstIndex(where: { $0.id == id }),
+              !isSlotLocked(slots[index]) else {
+            return
+        }
+        slots[index].isEnabled = isEnabled
+    }
+
+    func isSlotLocked(_ slot: ShutdownSlot) -> Bool {
+        ScheduleRules.isLocked(slot, at: Date())
     }
 
     private static func slotComesBefore(_ lhs: ShutdownSlot, _ rhs: ShutdownSlot) -> Bool {
@@ -66,6 +80,7 @@ class ShutdownManager: NSObject, ObservableObject {
     func checkSchedules() {
         let calendar = Calendar.current
         let now = Date()
+        currentTime = now
 
         for slot in slots where slot.isEnabled {
             guard let scheduledTime = calendar.date(
@@ -191,8 +206,12 @@ struct ContentView: View {
 
             List {
                 ForEach($manager.slots) { $slot in
+                    let isLocked = manager.isSlotLocked(slot)
                     HStack {
-                        Toggle("", isOn: $slot.isEnabled)
+                        Toggle("", isOn: Binding(
+                            get: { slot.isEnabled },
+                            set: { manager.setEnabled($0, for: slot.id) }
+                        ))
                             .labelsHidden()
                         
                         Text(String(format: "%02d:%02d", slot.hour, slot.minute))
@@ -207,6 +226,8 @@ struct ContentView: View {
                         }
                         .buttonStyle(.borderless)
                     }
+                    .disabled(isLocked)
+                    .opacity(isLocked ? 0.5 : 1)
                 }
             }
             .frame(height: 150)
@@ -231,10 +252,9 @@ struct ContentView: View {
                 .labelsHidden()
                 
                 Button("Add Slot") {
-                    if manager.slots.count < 5 {
-                        manager.addSlot(ShutdownSlot(hour: newHour, minute: newMinute, isEnabled: true))
-                    }
+                    manager.addSlot(ShutdownSlot(hour: newHour, minute: newMinute, isEnabled: true))
                 }
+                .disabled(!manager.canAddSlot(hour: newHour, minute: newMinute))
             }
 
             Divider()
@@ -296,7 +316,7 @@ struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.0"
     }
 
     private var buildNumber: String {

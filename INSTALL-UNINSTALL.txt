@@ -2,7 +2,7 @@ SHUTDOWN CONTROLLER
 Install and uninstall guide
 
 INSTALL
-1. Open ShutdownController-1.0.dmg.
+1. Open ShutdownController-1.1.0.dmg.
 2. In the window that opens, drag ShutdownController.app onto the Applications
    shortcut. Wait for the copy to finish.
 3. Eject the ShutdownController disk image.
