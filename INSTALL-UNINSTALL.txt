@@ -2,7 +2,7 @@ SHUTDOWN CONTROLLER
 Install and uninstall guide
 
 INSTALL
-1. Open ShutdownController-1.1.0.dmg.
+1. Open ShutdownController-1.2.1.dmg.
 2. In the window that opens, drag ShutdownController.app onto the Applications
    shortcut. Wait for the copy to finish.
 3. Eject the ShutdownController disk image.
@@ -12,8 +12,12 @@ INSTALL
 
 UNINSTALL THE APP
 1. Open ShutdownController from Applications.
-2. Turn off "Start at login" in its popover, then choose Quit.
-3. In Finder, open Applications and move ShutdownController.app to the Trash.
+2. Set Shutdown control to "This App" or disable all enabled schedules.
+3. Turn off "Start at login" in its popover, then choose Quit.
+4. Remove the LaunchAgent with:
+   /bin/launchctl bootout gui/$(id -u)/com.local.ShutdownController
+   Move ~/Library/LaunchAgents/com.local.ShutdownController.plist to the Trash.
+5. In Finder, open Applications and move ShutdownController.app to the Trash.
 
 If the app cannot be opened, remove it from System Settings > General > Login
 Items & Extensions before moving it to the Trash. Remove ShutdownController

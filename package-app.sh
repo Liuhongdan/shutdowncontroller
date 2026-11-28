@@ -32,9 +32,11 @@ cat << 'EOF' > "$APP_BUNDLE/Contents/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.1.0</string>
+    <string>1.2.1</string>
     <key>CFBundleVersion</key>
-    <string>2</string>
+    <string>4</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Shutdown Controller uses System Events to shut down your Mac at scheduled times.</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>

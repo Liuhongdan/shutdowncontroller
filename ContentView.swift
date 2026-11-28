@@ -1,25 +1,43 @@
 import SwiftUI
 import ServiceManagement
 import AppKit
+import Darwin
 
 class ShutdownManager: NSObject, ObservableObject {
     @Published private(set) var currentTime = Date()
+    @Published private(set) var controlMode: ShutdownControlMode = .app {
+        didSet {
+            saveControlMode()
+            syncLaunchAgent()
+        }
+    }
+    @Published private(set) var isRequestingSystemEventsPermission = false
+    @Published private(set) var systemEventsPermissionError: String?
     @Published var slots: [ShutdownSlot] = [
         ShutdownSlot(hour: 22, minute: 35, isEnabled: false),
         ShutdownSlot(hour: 22, minute: 40, isEnabled: false),
         ShutdownSlot(hour: 22, minute: 45, isEnabled: false)
     ] {
-        didSet { saveSlots() }
+        didSet {
+            saveSlots()
+            syncLaunchAgent()
+        }
     }
     
     private var timer: Timer?
     private var warningPanel: NSPanel?
     private let saveKey = "SavedShutdownSlots"
+    private let controlModeKey = "ShutdownControlMode"
 
     override init() {
         super.init()
         loadSlots()
+        loadControlMode()
         startTimer()
+        syncLaunchAgent()
+        if controlMode == .system {
+            requestSystemEventsPermission()
+        }
     }
 
     deinit {
@@ -54,6 +72,59 @@ class ShutdownManager: NSObject, ObservableObject {
 
     func isSlotLocked(_ slot: ShutdownSlot) -> Bool {
         ScheduleRules.isLocked(slot, at: Date())
+    }
+
+    func isControlModeLocked() -> Bool {
+        slots.contains { isSlotLocked($0) }
+    }
+
+    func setControlMode(_ mode: ShutdownControlMode) {
+        guard !isControlModeLocked(),
+              !isRequestingSystemEventsPermission,
+              mode != controlMode else {
+            return
+        }
+
+        guard mode == .system else {
+            systemEventsPermissionError = nil
+            controlMode = mode
+            return
+        }
+
+        requestSystemEventsPermission()
+    }
+
+    private func requestSystemEventsPermission() {
+        guard !isRequestingSystemEventsPermission else { return }
+        isRequestingSystemEventsPermission = true
+        systemEventsPermissionError = nil
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let script = NSAppleScript(
+                source: "tell application id \"com.apple.systemevents\" to get name"
+            )
+            var errorInfo: NSDictionary?
+            let result = script?.executeAndReturnError(&errorInfo)
+            let errorMessage = errorInfo?[NSAppleScript.errorMessage] as? String
+
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.isRequestingSystemEventsPermission = false
+
+                if result != nil {
+                    self.controlMode = .system
+                } else {
+                    self.systemEventsPermissionError =
+                        "Could not authorize System Events. Allow Shutdown Controller in System Settings > Privacy & Security > Automation, then try again."
+                    if self.controlMode == .system {
+                        self.controlMode = .app
+                    }
+                    if let errorMessage {
+                        print("System Events permission request failed: \(errorMessage)")
+                    }
+                }
+            }
+        }
     }
 
     private static func slotComesBefore(_ lhs: ShutdownSlot, _ rhs: ShutdownSlot) -> Bool {
@@ -103,7 +174,9 @@ class ShutdownManager: NSObject, ObservableObject {
             if now >= scheduledTime, now < scheduledTime.addingTimeInterval(60),
                !wasHandled(shutdownKey, on: occurrence) {
                 markHandled(shutdownKey, on: occurrence)
-                executeShutdown()
+                if controlMode == .app {
+                    executeShutdown()
+                }
             }
         }
     }
@@ -157,27 +230,109 @@ class ShutdownManager: NSObject, ObservableObject {
     }
 
     func executeShutdown() {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        task.arguments = ["-e", "tell application \"System Events\" to shut down"]
-        task.standardError = Pipe()
-        
-        do {
-            try task.run()
-            task.waitUntilExit()
-            if task.terminationStatus != 0 {
-                let errorData = (task.standardError as? Pipe)?.fileHandleForReading.readDataToEndOfFile() ?? Data()
-                let errorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown AppleScript error"
-                print("Failed to execute shutdown process: \(errorMessage)")
-            }
-        } catch {
-            print("Failed to execute shutdown process: \(error)")
+        Self.executeShutdownRequest()
+    }
+
+    static func executeShutdownRequest() {
+        let script = NSAppleScript(
+            source: "tell application id \"com.apple.systemevents\" to shut down"
+        )
+        var errorInfo: NSDictionary?
+        guard script?.executeAndReturnError(&errorInfo) != nil else {
+            let errorMessage = errorInfo?[NSAppleScript.errorMessage] as? String
+                ?? "Unknown AppleScript error"
+            print("Failed to execute shutdown request: \(errorMessage)")
+            return
         }
     }
 
     private func saveSlots() {
         if let encoded = try? JSONEncoder().encode(slots) {
             UserDefaults.standard.set(encoded, forKey: saveKey)
+        }
+    }
+
+    private func saveControlMode() {
+        UserDefaults.standard.set(controlMode.rawValue, forKey: controlModeKey)
+    }
+
+    private func loadControlMode() {
+        if let rawValue = UserDefaults.standard.string(forKey: controlModeKey),
+           let mode = ShutdownControlMode(rawValue: rawValue) {
+            controlMode = mode
+        }
+    }
+
+    private func syncLaunchAgent() {
+        let label = "com.local.ShutdownController"
+        let launchAgentsDirectory = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/LaunchAgents", isDirectory: true)
+        let plistURL = launchAgentsDirectory.appendingPathComponent("\(label).plist")
+        let uid = getuid()
+
+        runLaunchctl(["bootout", "gui/\(uid)/\(label)"])
+
+        guard controlMode == .system else {
+            try? FileManager.default.removeItem(at: plistURL)
+            return
+        }
+
+        let enabledSlots = slots.filter(\.isEnabled)
+        guard !enabledSlots.isEmpty else {
+            try? FileManager.default.removeItem(at: plistURL)
+            return
+        }
+
+        guard let executablePath = Bundle.main.executableURL?.path else {
+            print("Failed to sync shutdown LaunchAgent: app executable path is unavailable")
+            return
+        }
+
+        do {
+            try FileManager.default.createDirectory(
+                at: launchAgentsDirectory,
+                withIntermediateDirectories: true
+            )
+
+            let calendarIntervals = enabledSlots.map {
+                [
+                    "Hour": $0.hour,
+                    "Minute": $0.minute
+                ]
+            }
+            let plist: [String: Any] = [
+                "Label": label,
+                "ProgramArguments": [
+                    executablePath,
+                    "--scheduled-shutdown"
+                ],
+                "RunAtLoad": false,
+                "StartCalendarInterval": calendarIntervals
+            ]
+            let data = try PropertyListSerialization.data(
+                fromPropertyList: plist,
+                format: .xml,
+                options: 0
+            )
+            try data.write(to: plistURL, options: .atomic)
+            runLaunchctl(["bootstrap", "gui/\(uid)", plistURL.path])
+        } catch {
+            print("Failed to sync shutdown LaunchAgent: \(error)")
+        }
+    }
+
+    private func runLaunchctl(_ arguments: [String]) {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        task.arguments = arguments
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            print("Failed to run launchctl: \(error)")
         }
     }
 
@@ -273,6 +428,46 @@ struct ContentView: View {
                 .keyboardShortcut("q")
             }
 
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Shutdown control")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Picker("Shutdown control", selection: Binding(
+                    get: { manager.controlMode },
+                    set: { manager.setControlMode($0) }
+                )) {
+                    ForEach(ShutdownControlMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .disabled(manager.isControlModeLocked() || manager.isRequestingSystemEventsPermission)
+
+                if manager.isControlModeLocked() {
+                    Text("Locked within 2 hours of an enabled shutdown.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                } else if manager.isRequestingSystemEventsPermission {
+                    Text("Waiting for System Events permission.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                } else if let permissionError = manager.systemEventsPermissionError {
+                    Text(permissionError)
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                } else if manager.controlMode == .app {
+                    Text("Schedules stop working after you quit the app.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("Schedules continue through macOS after you quit.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             Toggle("Start at login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { enabled in
                     updateLaunchAtLogin(enabled)
@@ -285,7 +480,7 @@ struct ContentView: View {
             }
         }
         .padding()
-        .frame(width: 280, height: 350)
+        .frame(width: 280, height: 430)
         .onAppear {
             updateLaunchAtLogin(launchAtLogin)
         }
@@ -316,7 +511,7 @@ struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.1"
     }
 
     private var buildNumber: String {

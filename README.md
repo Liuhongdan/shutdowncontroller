@@ -13,6 +13,10 @@ A lightweight macOS menu bar application for scheduling automatic system shutdow
 - Two-minute shutdown warning popup
 - Optional launch-at-login
 - Automatic shutdown through macOS `System Events`
+- Configurable shutdown control:
+  - **This App**: quitting the app cancels automatic shutdown execution
+  - **Continue after quitting**: synchronized to a user LaunchAgent so quitting the app does not cancel enabled times
+- Control-mode changes are locked within two hours of an enabled scheduled shutdown
 - Universal build support for Apple Silicon and Intel Macs
 
 ## Requirements
@@ -45,8 +49,29 @@ To build a DMG:
 The DMG will be created at:
 
 ```text
-build/ShutdownController-1.1.0.dmg
+build/ShutdownController-1.2.1.dmg
 ```
+
+## Change and Build Rule
+
+For every app change:
+
+1. Increase the app version and build number. Keep the version values in
+   `package-app.sh`, `build-dmg.sh`, this README, and `INSTALL-UNINSTALL.txt`
+   consistent.
+2. Build the app:
+
+   ```bash
+   ./package-app.sh
+   ```
+
+3. Build the DMG:
+
+   ```bash
+   ./build-dmg.sh
+   ```
+
+Deliver and test the newly built app and DMG, not older files left in `build/`.
 
 ## Usage
 
@@ -58,7 +83,15 @@ build/ShutdownController-1.1.0.dmg
 6. Enabled schedules are locked two hours before shutdown and cannot be changed or deleted.
 7. The app will automatically sort enabled and disabled schedules chronologically.
 8. Two minutes before a scheduled shutdown, an acknowledgment popup is displayed.
-9. The system shuts down at the scheduled time.
+9. Choose **Shutdown control**:
+   - **This App**: the system shuts down only while the app is running.
+   - **Continue after quitting**: the system shuts down at the scheduled time even if the app has been quit.
+10. Changes to Shutdown control are locked within two hours of an enabled scheduled shutdown.
+11. The first time you choose **Continue after quitting**, allow Shutdown Controller to control System Events when macOS asks. If authorization fails, the mode stays on **This App**.
+
+Enabled times are synchronized to `~/Library/LaunchAgents/com.local.ShutdownController.plist`.
+In **This App** mode, the app timer performs the shutdown while the app is running.
+In **Continue after quitting** mode, the LaunchAgent starts the app's shutdown action at the scheduled time.
 
 ## Running Schedule Rule Tests
 

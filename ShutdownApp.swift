@@ -17,6 +17,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var popover = NSPopover()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if ProcessInfo.processInfo.arguments.contains("--scheduled-shutdown") {
+            ShutdownManager.executeShutdownRequest()
+            NSApplication.shared.terminate(nil)
+            return
+        }
+
         let launchAtLogin = UserDefaults.standard.object(forKey: "LaunchAtLogin") as? Bool ?? true
         if launchAtLogin && SMAppService.mainApp.status != .enabled {
             do {
@@ -38,7 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.action = #selector(togglePopover)
         }
 
-        popover.contentSize = NSSize(width: 280, height: 350)
+        popover.contentSize = NSSize(width: 280, height: 410)
         popover.behavior = .semitransient
         popover.contentViewController = NSHostingController(rootView: ContentView())
     }

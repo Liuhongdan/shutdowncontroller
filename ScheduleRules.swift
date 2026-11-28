@@ -7,6 +7,22 @@ struct ShutdownSlot: Identifiable, Codable {
     var isEnabled: Bool
 }
 
+enum ShutdownControlMode: String, CaseIterable, Codable, Identifiable {
+    case app
+    case system
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .app:
+            return "This App"
+        case .system:
+            return "Continue after quitting"
+        }
+    }
+}
+
 enum ScheduleRules {
     static let lockWindow: TimeInterval = 2 * 60 * 60
 
